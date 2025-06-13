@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Madu
 {
-    // Класс, представляющий змейку
+    // Класс, представляющий змейку    
     public class Snake
     {
         private List<Point> body; // Список сегментов тела змейки
