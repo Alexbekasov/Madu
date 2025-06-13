@@ -1,68 +1,40 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Madu
 {
-    internal class Point
+    // Класс, представляющий одну точку на консоли.
+    public class Point
     {
-        public int x; // Координата X
-        public int y; // Координата Y
-        public string sym; // Символ точки
+        public int X { get; set; } // Координата X
+        public int Y { get; set; } // Координата Y
+        public string Symbol { get; set; } // Символ для отображения точки
 
-        public Point(int _x, int _y, string _sym)
+        // Конструктор точки
+        public Point(int x, int y, string symbol)
         {
-            x = _x; // Присваиваем X
-            y = _y; // Присваиваем Y
-            sym = _sym; // Присваиваем символ
-
+            X = x;
+            Y = y;
+            Symbol = symbol;
         }
 
-        public Point(Point p) // Конструктор копирования
+        // Метод для отрисовки точки на консоли
+        public void Draw()
         {
-            x = p.x; // Копируем X
-            y = p.y; // Копируем Y
-            sym = p.sym; // Копируем символ
+            Console.SetCursorPosition(X, Y);
+            Console.Write(Symbol);
         }
 
-        public void Move(int offset, Directions direction) // Перемещаем точку
+        // Метод для очистки точки (перерисовка пробелом)
+        public void Clear()
         {
-            if (direction == Directions.RIGHT) // Если направление вправо
-            {
-                x += offset; // Увеличиваем X
-            }
-            else if (direction == Directions.LEFT) // Если направление влево
-            {
-                x -= offset; // Уменьшаем X
-            }
-            else if (direction == Directions.UP) // Если направление вверх
-            {
-                y -= offset; // Уменьшаем Y
-            }
-            else if (direction == Directions.DOWN) // Если направление вниз
-            {
-                y += offset; // Увеличиваем Y
-            }
+            Console.SetCursorPosition(X, Y);
+            Console.Write(" ");
         }
 
-        public bool IsHit(Point p) // Проверяем, совпадает ли точка с другой точкой
+        // Метод для проверки, находится ли эта точка на той же позиции, что и другая точка
+        public bool IsHit(Point otherPoint)
         {
-            return p.x == this.x && p.y == this.y; // Возвращаем true, если X и Y совпадают
+            return X == otherPoint.X && Y == otherPoint.Y;
         }
-
-        public void Draw() // Рисуем точку
-        {
-            Console.SetCursorPosition(x, y); // Устанавливаем позицию курсора
-            Console.Write(sym); // Выводим символ
-        }
-
-        public void Clear() // Очищаем точку (заменяем символом пробела)
-        {
-            sym = " "; // Устанавливаем символ пробела
-            Draw(); // Рисуем пробел, чтобы стереть старый символ
-        }
-
     }
 }

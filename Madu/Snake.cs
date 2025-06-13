@@ -4,113 +4,151 @@ using System.Linq;
 
 namespace Madu
 {
-    class Snake : Figure
+    // Класс, представляющий змейку
+    public class Snake
     {
-        public Directions direction; // Направление движения змейки
+        private List<Point> body; // Список сегментов тела змейки
+        public Direction CurrentDirection { get; private set; } // Текущее направление движения змейки
+        private string snakeSymbol; // Символ, которым отображается змейка
 
-        public Snake(Point tail, int length, Directions _direction)
+        // Конструктор змейки: принимает начальную позицию головы, длину и символ
+        public Snake(int startX, int startY, int length, string symbol)
         {
-            direction = _direction; // Устанавливаем начальное направление
+            body = new List<Point>();
+            snakeSymbol = symbol;
+            CurrentDirection = Direction.Right; // Змейка по умолчанию начинает двигаться вправо
 
-            plist = new List<Point>(); // Инициализируем список точек, составляющих змейку
-            // Extend snake backwards from tail
-            for (int i = 0; i < length; i++) // Создаем точки для начальной длины змейки
+            // Создаем начальные сегменты тела змейки. Голова будет последним элементом в списке.
+            for (int i = 0; i < length; i++)
             {
-                Point p = new Point(tail); // Копируем точку хвоста
-                p.Move(-i, direction); // Перемещаем точку назад относительно направления (для построения хвоста)
-                plist.Add(p); // Добавляем точку в список змейки
+                // Сегменты строятся назад от головы
+                body.Insert(0, new Point(startX - i, startY, snakeSymbol));
             }
         }
 
-        internal void Move() // Метод для движения змейки
+        // Публичный метод для получения всех сегментов тела змейки
+        public List<Point> GetAllBodyPoints()
         {
-            Point tail = plist.First(); // Получаем первую (хвостовую) точку змейки
-            plist.Remove(tail); // Удаляем хвост
-            Point head = GetNextPoint(); // Получаем новую позицию для головы
-            plist.Add(head); // Добавляем новую голову в список
-
-            tail.Clear(); // Очищаем старую позицию хвоста (превращаем в пробел)
-            head.Draw(); // Рисуем новую голову
+            return body;
         }
 
-        internal bool Eat(Point food) // Метод для проверки, съела ли змейка еду
+        // Метод для отрисовки всей змейки
+        public void Draw()
         {
-            Point head = GetNextPoint(); // Получаем следующую позицию головы
-            if (head.IsHit(food)) // Если голова совпадает с едой
+            Console.ForegroundColor = ConsoleColor.Green; // Цвет змейки - зеленый
+            foreach (var segment in body)
             {
-                food.sym = head.sym; // Присваиваем символу еды символ головы змейки (чтобы она рисовалась как часть змейки)
-                plist.Add(food); // Добавляем еду как новую часть змейки
-                return true; // Возвращаем true, что еда съедена
+                segment.Draw();
             }
-            return false; // Возвращаем false, еда не съедена
+            Console.ResetColor();
         }
 
-        public bool IsHit(Point p) // Проверяем, совпадает ли змейка с заданной точкой
+        // Метод для движения змейки на один шаг
+        public void Move()
         {
-            foreach (var part in plist) // Для каждой части змейки
+            Point tail = body.First(); // Получаем хвост
+            body.Remove(tail); // Удаляем хвост из списка
+            tail.Clear(); // Очищаем хвост на экране
+
+            Point newHead = GetNextHeadPosition(); // Вычисляем новую позицию головы
+            body.Add(newHead); // Добавляем новую голову в список
+            newHead.Draw(); // Рисуем новую голову
+        }
+
+        // Публичный метод для получения следующей позиции головы змейки (для проверок столкновений)
+        public Point GetNextHeadPosition()
+        {
+            Point currentHead = body.Last(); // Текущая голова змейки
+            Point newHead = new Point(currentHead.X, currentHead.Y, snakeSymbol); // Новая точка для головы
+
+            // Перемещаем новую точку в текущем направлении
+            switch (CurrentDirection)
             {
-                if (part.IsHit(p)) // Если часть змейки совпадает с точкой
-                    return true; // Возвращаем true
+                case Direction.Up:
+                    newHead.Y--;
+                    break;
+                case Direction.Down:
+                    newHead.Y++;
+                    break;
+                case Direction.Left:
+                    newHead.X--;
+                    break;
+                case Direction.Right:
+                    newHead.X++;
+                    break;
             }
-            return false; // Возвращаем false
+            return newHead;
         }
 
-        public Point GetNextPoint() // Получаем следующую позицию головы змейки
+        // Метод для обработки нажатий клавиш и изменения направления змейки
+        public void ChangeDirection(ConsoleKey key)
         {
-            Point head = plist.Last(); // Получаем текущую голову змейки
-            Point nextPoint = new Point(head); // Создаем новую точку, копируя голову
-            nextPoint.Move(1, direction); // Перемещаем эту новую точку на 1 шаг в текущем направлении
-            return nextPoint; // Возвращаем следующую позицию головы
-        }
+            Direction newDirection = CurrentDirection;
 
-        public void HandleKey(ConsoleKey key) // Обрабатываем нажатие клавиши для изменения направления
-        {
-            Directions newDirection = direction; // Предполагаемое новое направление
-
+            // Определяем новое направление на основе нажатой клавиши
+            switch (key)
             {
-                if (key == ConsoleKey.LeftArrow) // Если нажата стрелка влево
-                    newDirection = Directions.LEFT; // Новое направление - влево
-                else if (key == ConsoleKey.RightArrow) // Если нажата стрелка вправо
-                    newDirection = Directions.RIGHT; // Новое направление - вправо
-                else if (key == ConsoleKey.UpArrow) // Если нажата стрелка вверх
-                    newDirection = Directions.UP; // Новое направление - вверх
-                else if (key == ConsoleKey.DownArrow) // Если нажата стрелка вниз
-                    newDirection = Directions.DOWN; // Новое направление - вниз
+                case ConsoleKey.UpArrow:
+                    newDirection = Direction.Up;
+                    break;
+                case ConsoleKey.DownArrow:
+                    newDirection = Direction.Down;
+                    break;
+                case ConsoleKey.LeftArrow:
+                    newDirection = Direction.Left;
+                    break;
+                case ConsoleKey.RightArrow:
+                    newDirection = Direction.Right;
+                    break;
             }
 
-            // Prevent reversing on itself
-            // Проверяем, чтобы змейка не могла двигаться в прямо противоположном направлении (например, с права налево, если она движется вправо)
-            if ((direction == Directions.LEFT && newDirection != Directions.RIGHT) ||
-                (direction == Directions.RIGHT && newDirection != Directions.LEFT) ||
-                (direction == Directions.UP && newDirection != Directions.DOWN) ||
-                (direction == Directions.DOWN && newDirection != Directions.UP))
+            // Предотвращаем разворот змейки на 180 градусов (столкновение с собой)
+            if ((CurrentDirection == Direction.Up && newDirection == Direction.Down) ||
+                (CurrentDirection == Direction.Down && newDirection == Direction.Up) ||
+                (CurrentDirection == Direction.Left && newDirection == Direction.Right) ||
+                (CurrentDirection == Direction.Right && newDirection == Direction.Left))
             {
-                direction = newDirection; // Устанавливаем новое направление
+                // Если попытка разворота, игнорируем изменение направления
+                return;
             }
+
+            CurrentDirection = newDirection; // Устанавливаем новое направление
         }
 
-        public override void Draw() // Рисуем змейку
+        // Метод для проверки столкновения змейки с самой собой (хвостом)
+        public bool CheckSelfCollision()
         {
-            // Set snake body color (e.g., Green for the snake itself)
-            Console.ForegroundColor = ConsoleColor.Green; // Устанавливаем зеленый цвет для змейки
-            base.Draw(); // Вызываем базовый метод Draw() для рисования всех точек списка (частей змейки)
-            // Note: Console.ResetColor() is now called in Program.cs after snake.Draw() for better scope management.
-        }
-
-        internal bool IsHitTail() // Проверяем столкновение с хвостом
-        {
-            var head = plist.Last(); // Получаем голову змейки
-            for (int i = 0; i < plist.Count - 1; i++) // Проходим по всем частям змейки, кроме головы
+            Point head = body.Last(); // Голова змейки
+            // Проверяем, совпадает ли голова с каким-либо другим сегментом тела (кроме самой себя)
+            for (int i = 0; i < body.Count - 1; i++)
             {
-                if (head.IsHit(plist[i])) // Если голова совпадает с какой-либо частью хвоста
-                    return true; // Возвращаем true (столкновение с хвостом)
+                if (head.IsHit(body[i]))
+                {
+                    return true; // Столкновение с хвостом
+                }
             }
-            return false; // Возвращаем false (нет столкновения с хвостом)
+            return false;
         }
 
-        public List<Point> GetPoints() // Получаем список всех точек, составляющих змейку
+        // Метод для проверки столкновения змейки с границами стены
+        // Этот метод проверяет, выйдет ли *будущая* голова змейки за пределы карты
+        public bool CheckWallCollision(int mapWidth, int mapHeight)
         {
-            return plist; // Возвращаем список точек
+            Point head = GetNextHeadPosition(); // Получаем *следующую* позицию головы
+            // Проверяем, выйдет ли голова за границы карты
+            return head.X <= 0 || head.X >= mapWidth - 1 || head.Y <= 0 || head.Y >= mapHeight - 1;
+        }
+
+        // Метод для проверки, съела ли змейка еду
+        public bool EatFood(Food food)
+        {
+            Point head = GetNextHeadPosition(); // Получаем следующую позицию головы
+            if (head.IsHit(food.Position)) // Если следующая позиция головы совпадает с едой
+            {
+                body.Add(new Point(food.Position.X, food.Position.Y, snakeSymbol)); // Добавляем еду как новый сегмент тела
+                return true;
+            }
+            return false;
         }
     }
 }

@@ -2,134 +2,126 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.IO;
+using System.Threading; // Для Thread.Sleep
+using System.IO; // Для работы с файлами
 
 namespace Madu
 {
     class Program
     {
+        // Размеры игрового поля (консоли)
+        const int MAP_WIDTH = 80;
+        const int MAP_HEIGHT = 25;
+
         static void Main(string[] args)
         {
-            List<Figure> extraWalls = new List<Figure>(); // Список дополнительных стен
+            Console.Title = "Игра Змейка"; // Устанавливаем заголовок окна консоли
 
-            while (true) // Бесконечный цикл для перезапуска игры
+            // Главный цикл игры, который позволяет перезапускать игру после "Game Over"
+            while (true)
             {
-                Menu menu = new Menu(); // Создаем объект меню
-                List<int> a = menu.ShowOptions(); // Показываем меню и получаем выбранные настройки
-                int Sp = Menu.GetSpeed(a); // Получаем скорость из настроек
-                string Sy = Menu.GetSymbol(a); // Получаем символ змейки из настроек
+                Menu menu = new Menu();
+                // Показываем меню и получаем выбранные пользователем настройки
+                (int speedIndex, int symbolIndex) gameSettings = menu.Show();
 
-                Console.Clear(); // Очищаем консоль
+                int gameSpeed = Settings.SpeedValues[gameSettings.speedIndex]; // Получаем задержку (скорость) игры
+                string snakeSymbol = Settings.SnakeSymbols[gameSettings.symbolIndex]; // Получаем символ для змейки
 
-                Console.Write("Name: "); // Просим ввести имя
-                string Name = Console.ReadLine(); // Считываем имя игрока
-                int score = 0; // Инициализируем счет игры
+                Console.Clear(); // Очищаем консоль перед началом игры
 
-                Console.SetWindowSize(80, 25); // Устанавливаем размер окна консоли
-                Console.SetBufferSize(80, 25); // Устанавливаем размер буфера консоли
-                Console.OutputEncoding = System.Text.Encoding.UTF8; // Устанавливаем кодировку для поддержки Unicode символов
+                // Запрос имени игрока
+                Console.SetCursorPosition(MAP_WIDTH / 2 - 10, MAP_HEIGHT / 2 - 2);
+                Console.Write("Введите ваше имя: ");
+                string playerName = Console.ReadLine();
+                playerName = string.IsNullOrEmpty(playerName) ? "Игрок" : playerName; // Имя по умолчанию, если не введено
 
-                Walls walls = new Walls(80, 25); // Создаем объект стен
-                walls.Draw(); // Рисуем стены
+                int currentScore = 0; // Начальный счет игры
 
-                // Изменено начальное положение змейки, чтобы она не врезалась в стену сразу.
-                // Начальная точка p = (20,10) - это хвост. Голова будет на (20 - (длина-1), 10).
-                // Для длины 4, голова будет на (20-3, 10) = (17,10), что безопасно.
-                Point p = new Point(20, 10, Sy); // Создаем начальную точку для змейки (дальше от края)
-                Snake snake = new Snake(p, 4, Directions.RIGHT); // Создаем объект змейки
-                snake.Draw(); // Рисуем змейку
-                Console.ResetColor(); // Сбрасываем цвет консоли после рисования змейки
+                // Настраиваем окно консоли
+                Console.SetWindowSize(MAP_WIDTH, MAP_HEIGHT);
+                Console.SetBufferSize(MAP_WIDTH, MAP_HEIGHT);
+                Console.OutputEncoding = System.Text.Encoding.UTF8; // Важно для корректного отображения символов
 
-                // Set food color before drawing
-                Console.ForegroundColor = ConsoleColor.Red; // Устанавливаем красный цвет для еды
-                FoodCreator foodCreator = new FoodCreator(80, 25, "●"); // Создаем создателя еды, используем символ "●"
-                Point food = foodCreator.CreateFood(snake.GetPoints(), walls.GetPoints()); // Создаем еду
-                food.Draw(); // Рисуем еду
-                Console.ResetColor(); // Сбрасываем цвет консоли на стандартный после рисования еды
+                // Создаем и отрисовываем стены игрового поля
+                Walls walls = new Walls(MAP_WIDTH, MAP_HEIGHT);
+                walls.Draw();
 
+                // Создаем змейку. Начальная позиция головы (10, 10) - это безопасное место.
+                Snake snake = new Snake(10, 10, 4, snakeSymbol); // Змейка длиной 4, символ из настроек
+                snake.Draw(); // Отрисовываем змейку
 
-                bool isGameOver = false; // Флаг окончания игры
+                // Создаем еду
+                Food food = new Food("*"); // Еда будет символом "*"
+                food.GenerateNewPosition(MAP_WIDTH, MAP_HEIGHT, snake.GetAllBodyPoints(), walls.GetAllWallPoints());
+                food.Draw(); // Отрисовываем еду
 
-                while (!isGameOver) // Цикл игры
+                bool isGameOver = false; // Флаг состояния игры
+
+                // Главный игровой цикл
+                while (!isGameOver)
                 {
-                    if (walls.IsHit(snake) || snake.IsHitTail()) // Проверяем столкновение со стенами или хвостом
+                    // Отображаем информацию об игроке и счете в верхней части экрана
+                    Console.SetCursorPosition(2, 0); // Чуть отступаем от края
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.Write($"Игрок: {playerName} | Счет: {currentScore}     "); // Пробелы для очистки старого счета
+                    Console.ResetColor();
+
+                    // Проверяем ввод пользователя (нажатие клавиш)
+                    if (Console.KeyAvailable)
                     {
-                        isGameOver = true; // Устанавливаем флаг окончания игры
-                        continue; // Переходим к следующей итерации цикла (выйдем из игрового цикла)
+                        ConsoleKeyInfo key = Console.ReadKey(true); // Считываем клавишу без отображения
+                        snake.ChangeDirection(key.Key); // Меняем направление змейки
                     }
 
-                    bool hitExtraWall = false; // Флаг столкновения с дополнительной стеной
-                    foreach (var wall in extraWalls) // Проходим по всем дополнительным стенам
+                    // Проверяем столкновения ЗМЕЙКИ
+                    // 1. Со стенами (рамкой карты) - проверка теперь внутри Snake.CheckWallCollision
+                    // 2. С самой собой (хвостом)
+                    if (snake.CheckWallCollision(MAP_WIDTH, MAP_HEIGHT) || snake.CheckSelfCollision())
                     {
-                        if (wall.IsHit(snake)) // Если змейка столкнулась с дополнительной стеной
-                        {
-                            hitExtraWall = true; // Устанавливаем флаг
-                            break; // Выходим из цикла
-                        }
+                        isGameOver = true; // Если столкновение, игра окончена
+                        continue; // Переходим к экрану Game Over
                     }
-                    if (hitExtraWall) // Если было столкновение с дополнительной стеной
-                        break; // Выходим из игрового цикла
 
-                    if (snake.Eat(food)) // Если змейка съела еду
+                    // Проверяем, съела ли змейка еду
+                    if (snake.EatFood(food))
                     {
-                        score++; // Увеличиваем счет
-                        // Set food color before creating new food
-                        Console.ForegroundColor = ConsoleColor.Red; // Устанавливаем красный цвет для новой еды
-                        if (score % 3 == 0) // Каждые 3 очка
-                        {
-                            // wall!
-                            Random rnd = new Random(); // Создаем объект Random
-                            int x = rnd.Next(2, 74); // Генерируем случайную X-координату для новой стены
-                            int y = rnd.Next(2, 23); // Генерируем случайную Y-координату для новой стены
+                        currentScore++; // Увеличиваем счет
 
-                            HorizontalLine newWall = new HorizontalLine(x, x + 4, y, "#"); // Создаем новую горизонтальную стену
-                            extraWalls.Add(newWall); // Добавляем стену в список
-                            newWall.Draw(); // Рисуем новую стену
-                        }
+                        // В этой версии нет дополнительных стен, но можно добавить здесь
+                        // if (currentScore % 5 == 0) { // Добавляем стену каждые 5 очков }
 
-                        do // Цикл для создания новой еды
-                        {
-                            food = foodCreator.CreateFood(snake.GetPoints(), walls.GetPoints()); // Создаем новую еду, избегая змейки и стен
-                        } while (snake.IsHit(food) || walls.GetPoints().Any(p => p.IsHit(food))); // Повторяем, если еда появилась на змейке или стене
-
-                        food.Draw(); // Рисуем новую еду
-                        Console.ResetColor(); // Сбрасываем цвет консоли после рисования еды
+                        // Генерируем новую еду
+                        food.GenerateNewPosition(MAP_WIDTH, MAP_HEIGHT, snake.GetAllBodyPoints(), walls.GetAllWallPoints());
+                        food.Draw(); // Отрисовываем новую еду
                     }
                     else
                     {
-                        snake.Move(); // Змейка движется
+                        snake.Move(); // Змейка просто движется, если еда не была съедена
                     }
 
-                    // Display score with a distinct color
-                    Console.SetCursorPosition(0, 0); // Устанавливаем курсор в верхний левый угол
-                    Console.ForegroundColor = ConsoleColor.White; // Устанавливаем белый цвет для текста счета
-                    Console.Write($"Player: {Name} | Score: {score} "); // Выводим имя игрока и счет
-                    Console.ResetColor(); // Сбрасываем цвет текста
-
-                    Thread.Sleep(Sp); // Задержка для контроля скорости игры
-
-                    if (Console.KeyAvailable) // Если нажата клавиша
-                    {
-                        ConsoleKeyInfo key = Console.ReadKey(true); // Считываем клавишу
-                        snake.HandleKey(key.Key); // Обрабатываем нажатие клавиши для управления змейкой
-                    }
+                    Thread.Sleep(gameSpeed); // Пауза для контроля скорости игры
                 }
 
-                Console.Clear(); // Очищаем консоль
-                Console.SetCursorPosition(30, 10); // Устанавливаем позицию курсора
-                Console.WriteLine("DEAD. Your score: " + score); // Выводим сообщение об окончании игры и финальный счет
+                // Экран "Игра окончена"
+                Console.Clear();
+                Console.SetCursorPosition(MAP_WIDTH / 2 - 10, MAP_HEIGHT / 2 - 2);
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("ИГРА ОКОНЧЕНА!");
+                Console.SetCursorPosition(MAP_WIDTH / 2 - 10, MAP_HEIGHT / 2);
+                Console.WriteLine($"Ваш счет: {currentScore}");
+                Console.ResetColor();
 
-                string path = "scores.txt"; // Путь к файлу рекордов
-
-                using (StreamWriter writer = new StreamWriter(path, true)) // Открываем файл для записи (в режиме добавления)
+                // Сохранение рекорда в файл
+                string scoresPath = "scores.txt";
+                using (StreamWriter writer = new StreamWriter(scoresPath, true, Encoding.UTF8)) // Используем UTF8 для записи
                 {
-                    writer.WriteLine(Name + " - " + score); // Записываем имя игрока и его счет в файл
+                    writer.WriteLine($"{playerName} - {currentScore}");
                 }
 
-                Console.WriteLine("\n                                 Press any key"); // Просим нажать любую клавишу
-                Console.ReadKey(); // Ждем нажатия клавиши
-                Console.Clear(); // Очищаем консоль перед следующим циклом игры
+                Console.SetCursorPosition(MAP_WIDTH / 2 - 15, MAP_HEIGHT / 2 + 3);
+                Console.WriteLine("Нажмите любую клавишу для возврата в меню...");
+                Console.ReadKey(true); // Ждем нажатия клавиши
+                Console.Clear(); // Очищаем консоль перед новым запуском
             }
         }
     }
